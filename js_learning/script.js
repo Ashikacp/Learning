@@ -1,0 +1,142 @@
+
+var Search = (()=>{
+
+    var searchInput = document.getElementById("search"); //selecting input from DOM
+    var inputValue = ""; // initial input variable
+    var dataURL = "./data.json"; // mock json data used for search
+
+    var handleSearch = async (event) => {
+        inputValue = event.target.value;
+        var data = await readJSON();
+        var filteredData = filterData(data);
+        renderUI(filteredData);
+    }
+
+    var readJSON = async () => {
+        var data = await fetch(dataURL)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error("HTTP error " + response.status);
+                }
+                return response.json();
+            })
+            .then(json => {
+                return json
+            })
+            .catch((e) => {
+                return new Error(e);
+            })
+        return data;
+    }
+
+    var filterData = (data) => {
+        return data.filter(element => matchString(element.id) || matchString(element.name) || matchString(element.address));
+    }
+
+    var matchString = (string) => {
+        if(inputValue.length === 0) return false;
+		var re = new RegExp(inputValue, 'gi');
+        return string.match(re);
+    }
+
+    var handleEvents = (event) => {
+        searchInput.addEventListener("input", debounce(handleSearch, 500));
+        document.addEventListener("mouseover", function(event) {
+            if(event.target && event.target.parentElement && event.target.parentElement.tagName === "LI" && inputValue.length > 0) {
+                highlightContent(event.target.parentElement);
+            }
+        });
+        document.addEventListener("keydown", handleKeyboardAction);
+    }
+
+    var handleKeyboardAction = (event) => {
+        var hlElement = document.querySelector("li.highlight");
+        var resulitList = Array.prototype.slice.call(document.querySelectorAll("li"));
+        var hlElementIndex = resulitList.indexOf(hlElement);
+        var element = hlElement;
+        var index = 0;
+
+        if(event.which === 38) {
+            index = hlElementIndex - 1;
+        }else if(event.which === 40) {
+            index = hlElementIndex += 1;
+        }
+
+        element = resulitList[index];
+        if(element) {
+            element.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+                inline: "nearest"
+            });
+        }
+        highlightContent(element);
+    }
+
+    var highlightContent = (element) => {
+        if(element) {
+            siblings(element).map(item => item.classList.remove("highlight"));
+            element.classList.add("highlight");
+        }
+    }
+
+    var highlightString = (text) => {
+        var re = new RegExp(inputValue, 'gi');
+        var newText = text.match(re);
+        return text.replace(newText,"<span class='highlight'>"+newText+"</span>")
+    }
+
+    var siblings = (elem) => {
+        let siblings = [];
+        let sibling = elem.parentNode.firstChild;
+    
+        for (; sibling; sibling = sibling.nextSibling)
+            if (sibling.nodeType == 1 && sibling != elem)
+                siblings.push(sibling);
+        return siblings;
+    }
+
+    var renderUI = (data) => {
+        var html;
+        var placeholder = document.querySelector(".search-result");
+        if(data.length > 0) {
+            html = `<ul>
+                    ${
+                        data.map((element, index) => 
+                            `<li ${index === 0 ? 'class="highlight"' : ''}>
+                                <span class="id">${highlightString(element.id)}</span>
+                                <span class="name">${highlightString(element.name)}</span>
+                                <span class="address">${highlightString(element.address)}</span>
+                            </li>`
+                        ).join('')
+                    }
+                </ul>`;
+        }else if(data.length === 0 && inputValue.length > 0) {
+            html = `<div class='no-result-found'>No result found</div>`;
+        }else {
+            html = ``;
+        }
+        placeholder.innerHTML = html;
+    }
+
+    const debounce = (func, delay) => {
+        let inDebounce
+        return function() {
+          const context = this
+          const args = arguments
+          clearTimeout(inDebounce)
+          inDebounce = setTimeout(() => func.apply(context, args), delay)
+        }
+    }
+
+    var init = () => {
+        handleEvents();
+    }
+    
+    return {
+        init: init
+    }
+})();
+
+
+window.onload = Search.init();
